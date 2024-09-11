@@ -17,7 +17,7 @@ import google.generativeai as genai
 # Load environment variables from .env file
 load_dotenv()
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "txt"}
 
 # WARNING: Do not share code with you API key hard coded in it.
 # Get your Gemini API key from: https://aistudio.google.com/app/apikey
@@ -40,32 +40,42 @@ def allowed_file(filename):
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    """Takes in a file, checks if it is valid,
-    and saves it for the next request to the API
-    """
+    """파일을 받아 유효성을 검사하고 다음 API 요청을 위해 저장합니다."""
     global next_image
+    global next_text_content
 
     if "file" not in request.files:
-        return jsonify(success=False, message="No file part")
+        return jsonify(success=False, message="파일이 없습니다")
 
     file = request.files["file"]
 
     if file.filename == "":
-        return jsonify(success=False, message="No selected file")
+        return jsonify(success=False, message="선택된 파일이 없습니다")
+    
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-
-        # Read the file stream into a BytesIO object
+        
+        # 파일 스트림을 BytesIO 객체로 읽기
         file_stream = io.BytesIO(file.read())
         file_stream.seek(0)
-        next_image = Image.open(file_stream)
+        
+        # 파일 확장자 확인
+        _, ext = os.path.splitext(filename)
+        if ext.lower() == '.txt':
+            # 텍스트 파일 처리
+            next_text_content = file_stream.read().decode('utf-8')
+            message = "텍스트 파일이 성공적으로 업로드되어 대화에 추가되었습니다"
+        else:
+            # 이미지 파일 처리
+            next_image = Image.open(file_stream)
+            message = "이미지 파일이 성공적으로 업로드되어 대화에 추가되었습니다"
 
         return jsonify(
             success=True,
-            message="File uploaded successfully and added to the conversation",
+            message=message,
             filename=filename,
         )
-    return jsonify(success=False, message="File type not allowed")
+    return jsonify(success=False, message="허용되지 않는 파일 형식입니다")
 
 
 @app.route("/", methods=["GET"])
